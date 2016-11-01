@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <!--The viewport meta tag is used to improve the presentation and behavior of the samples
+      on iOS devices-->
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>GP Task Population Zonal Stats</title>
+
+    <link rel="stylesheet" href="http://js.arcgis.com/3.14/dijit/themes/claro/claro.css">
+    <link rel="stylesheet" href="http://js.arcgis.com/3.14/esri/css/esri.css">
+    <style>
+        html, body, #map {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #FFF;
+            overflow: hidden;
+            font-family: "Trebuchet MS";
+        }
+
+    </style>
+    <script src="http://js.arcgis.com/3.14/"></script>
+
+
+    <!--
+    <script src="jsapi_vsdoc10_v33.js" type="text/JavaScript"></script>
+    -->
+    <script>
+
+        dojo.require("esri.map");
+        dojo.require("esri.graphic");
+        dojo.require("esri/graphicsUtils");
+        dojo.require("esri/tasks/Geoprocessor");
+        dojo.require("esri/tasks/FeatureSet");
+        dojo.require("esri/tasks/JobInfo");
+        dojo.require("esri.tasks.query");
+        dojo.require("esri.layers.FeatureLayer");
+
+        var map, gp, dynamic, query, query1, featureSet, featureSet1, myfeatureSet;
+
+        function init() {
+            //底图 rest
+            var mapurl = "http://localhost:6080/arcgis/rest/services/sichuanshengbianjie/MapServer/";
+            map = new esri.Map("map");
+            dynamic = new esri.layers.ArcGISDynamicMapServiceLayer(mapurl);
+            map.addLayer(dynamic);
+
+
+            //注册map的点击事件,
+            dojo.connect(map, "onClick", findHotspot);
+
+
+        }
+
+        //加载dom
+        dojo.ready(init);
+
+        function findHotspot() {
+
+
+            // gp服务地址
+            var gpServiceUrl = "http://localhost:6080/arcgis/rest/services/contour/GPServer/ContourServiceSO2";
+            //创建gp服务
+            var gp = new esri.tasks.Geoprocessor(gpServiceUrl);
+            gp.outSpatialReference = map.spatialReference;
+            //获取rainpoint YL数据
+            featureLayer = new esri.layers.FeatureLayer("http://localhost:6080/arcgis/rest/services/rainpoint/MapServer/0");
+            require([
+                "esri/tasks/query"
+            ], function (Query) {
+                query = new Query();
+                query1 = new Query();
+            });
+
+            query.returnGeometry = true;
+            query.outFields = ["YL"];
+            query.where = "1>0";
+            query.OutputSpatialReference = "4214";
+
+
+            featureLayer.queryFeatures(query, function (fs) {
+                featureSet = fs;
+
+                //获取边界
+                featureLayer1 = new esri.layers.FeatureLayer("http://localhost:6080/arcgis/rest/services/sichuanshengbianjie/MapServer/0");
+                query1.returnGeometry = true;
+                query1.where = "1>0";
+                query1.OutputSpatialReference = "4214";
+                featureLayer1.queryFeatures(query1, function (fs1) {
+                    featureSet1 = fs1;
+
+                    //设置GP服务输入参数
+                    var params = {
+                        "输入点要素": featureSet,
+                        "四川省边界": featureSet1
+                    };
+                    //cleanup any results from previous runs
+                    // cleanup();
+                    //执行gp服务，调用回调函数，显示执行结果
+                    gp.submitJob(params, addResults);        // gpJobComplete, gpJobStatus, gpJobFailed
+
+                });
+            });
+        }
+
+        //construct the result map service url using the id from jobinfo we'll add a new layer to the map
+        //gp完成后的回调函数，获取处理结果
+
+        function addResults(jobinfo) {
+
+
+            //construct the result map service url using the id from jobinfo we'll add a new layer to the map
+            var mapurlll = "http://localhost:6080/arcgis/rest/services/contour/MapServer/jobs" + "/" + jobinfo.jobId;
+            hotspotLayer = new esri.layers.ArcGISDynamicMapServiceLayer(mapurlll
+
+
+            );
+
+            //add the hotspot layer to the map
+            map.addLayer(hotspotLayer);
+
+
+        }
+    </script>
+</head>
+<body class="claro">
+<div id="map"></div>
+<div data-dojo-type="dijit.layout.BorderContainer" data-dojo-props="design,'headline',gutters:false">
+    <div id="map" data-dojo-type="dijit.layout.ContentPane" data-dojo-props="region:'center'">
+    </div>
+</div>
+</body>
+</html>
